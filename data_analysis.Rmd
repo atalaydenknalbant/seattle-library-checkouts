@@ -1,0 +1,148 @@
+## Import Libraries
+  
+```{r}
+library(dplyr)
+library(readr)
+library(tidyr)
+library(tensorflow)
+library(ggplot2)
+library(varhandle)
+library(ggeasy)
+library(ggthemes)
+library(pastecs)
+options(max.print=1000000)
+
+```
+
+## Load Dataset
+
+```{r}
+
+df = read.csv('checkouts-by-title.csv')
+df_backup <- df
+cat('Number of Rows:', toString(nrow(df)))
+```
+
+## Inspect Data
+### Summary of Data
+```{r}
+summary(df)
+```
+### Head of Data
+```{r rows.print=20}
+options(width = 120)
+head(df,100)
+
+```
+### Descriptive Statistics
+```{r rows.print=14}
+stat.desc(df)
+```
+
+### Book Checkouts By Year
+```{r}
+checkoutbyyear = c()
+for(year in 2005:2019) {
+   checkoutbyyear <- append(checkoutbyyear, nrow(df[df$CheckoutYear == year,]))
+}
+years = seq(2005,2019)
+checkoutbyyear_df = data.frame(years,checkoutbyyear)
+checkoutbyyear_df
+```
+
+### Book Checkouts By Year Graph
+```{r}
+checkoutbyyear_df %>%
+  ggplot(aes(x=factor(years), y=factor(checkoutbyyear)),group=1) +
+    geom_line(aes(group=1)) +
+    geom_point(shape=21, color="blue", fill="purple", size=6) +
+    theme(axis.title.y = element_text(margin = margin(r = 10)),axis.title.x = element_text(margin = margin(r = 20)))+
+    ggtitle("Book Checkouts By Year") +
+    ylab('Checkouts') +
+    xlab('Years') +
+    ggeasy::easy_center_title()
+```
+### Physical vs Digital By year
+```{r}
+p_vs_d_df <- data.frame(matrix(ncol = 3, nrow = 15))
+pvd <- c("physical", "digital",'years')
+colnames(p_vs_d_df) <- pvd
+p_vs_d_df$years <- years
+for(year in 2005:2019) {
+   p_vs_d_df$physical[p_vs_d_df$years == year] <- nrow(df[df$CheckoutYear == year & df$UsageClass == 'Physical', ])
+   p_vs_d_df$digital[p_vs_d_df$years == year] <- nrow(df[df$CheckoutYear == year & df$UsageClass == 'Digital',])
+}
+p_vs_d_df
+```
+### Physical vs Digital By year Graph
+```{r}
+
+ggplot(group=1) +
+  geom_line(data = p_vs_d_df, aes(x=factor(years),y=physical,color='physical'),group=1) +
+  geom_line(data=p_vs_d_df, aes(x=factor(years),y=digital,color='digital'),group=1) +
+  labs(title = "Physical vs Digital By Year\n", x = "Years", y = "Checkouts", color = "Type\n") +
+  scale_y_continuous(breaks = seq(0, 2169105, len = 20))	+
+  theme_fivethirtyeight() +
+  scale_fill_fivethirtyeight() +
+  ggeasy::easy_center_title()
+
+
+
+
+```
+### Unique Titles
+```{r}
+df <- df[!(df$Title=="<Unknown Title>"),]
+df_unique <- unique(df$Title)
+length(df_unique)
+```
+### To 25 Checkout Items
+```{r rows.print=30, fig.width=12, fig.height=8}
+titles_df <- aggregate(x=df$Checkouts, by=list(df$Title), FUN=sum)
+tci <- titles_df %>%
+  group_by(Group.1) %>%
+  summarise(x) %>%
+  top_n(25)
+
+ggplot(tci, aes(Group.1, x)) +
+geom_bar(stat="identity", width = 0.5, fill=tci$x) + 
+      labs(title="Top 25 Checkout Items"
+           ) +
+      ylab("Checkouts") +
+      xlab("Items") +
+      scale_x_discrete(labels = c("Atonement","Becoming Jane","Burn after reading","FlexTechLaptops","Gone baby gone","Greatest hits","In Building Device Checkout","Into the wild","Juno","Michael Clayton","Once","SPL HotSpot","The assassination of Jesse James","The Economist","The golden compass","The Goldfinch","The kite runner","The New Yorker","The reader","Bag--BAL","Bag--DWN","Bag--GWD","Bag--NET","Vicky Cristina Barcelona","WALL-E"))+
+  ggeasy::easy_center_title() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1), axis.title.x = element_text(margin = margin(r = 20))) 
+
+```
+
+### Top 25 Titles
+```{r fig.width=14, fig.height=8}
+t <- df %>%
+  group_by(Title) %>%
+  summarise(n()) %>%
+  top_n(25)  
+
+colnames(t)[2] <- "x"
+
+
+ggplot(t, aes(Title, x)) +
+geom_bar(stat="identity", width = 0.5, fill=t$x) + 
+      labs(title="Top 25 Titles"
+           ) +
+      ylab("Checkouts") +
+      xlab("Titles") +
+  ggeasy::easy_center_title() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))  
+
+```
+### Linear Model
+```{r}
+sum_model <- lm(checkoutbyyear ~ years, data = checkoutbyyear_df)
+summary(sum_model)
+```
+
+
+
+
+
